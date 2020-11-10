@@ -456,7 +456,7 @@ foreach($record in $source) {
      Remove-TeamUser -User $record.UserUPN -GroupId $team.GroupID
 	 ## Remove user from the exclusion group 
 
-	 Write-Host "Removing user from exclusion group"
+	 ##Write-Host "Removing user from exclusion group"
 	 ##Try
      ##{
 	 ##$User = get-azureaduser -filter "mail eq '$sourceUserUPN'"
@@ -478,6 +478,8 @@ foreach($record in $source) {
      ##Print $ErrorMessage " " $FailedItem | out-file "$env:TEMP\B2BRemovalFailed.txt" -append
  
      ##}
+     Write-Host "User removed from" $team.displayname ", moving to next record."
+     continue
      }else {
 	
      Write-Host "Removal from team not required, moving to channel removal"
@@ -489,6 +491,8 @@ foreach($record in $source) {
      {
      Write-Host "Removing" $record.UserUPN  "from Team" $team.displayname "failed"
      Print $ErrorMessage " " $FailedItem | out-file  "$env:TEMP\B2BRemovalFailed.txt" -append
+     Write-Host "$recordUserUPN could not be removed from" $team.displayname "moving to next record."
+     continue
      }
  
 ## Remove the guested user from the Teams Channel in column ChannelName1
