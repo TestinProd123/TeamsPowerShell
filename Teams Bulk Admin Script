@@ -14,7 +14,7 @@ if ($Agree -eq "Y") {
 	 Write-Host "Please choose from the following options:" -ForegroundColor Green
 	 Do { $Program = Read-Host "
 1: Choose the B2B Guesting and User Assignment Tool: `n This tool is used to onboard guest users to your organisation and allocate them to specific Teams and Private Channels based on a CSV file.
-2: Choose the B2B Removal Tool: `n This tool is used to remove B2B guest users from specific Teams and Private Channels based on a CSV file.
+2: Choose the Bulk Team/Channel Removal Tool: `n This tool is used to remove B2B guest users from specific Teams and Private Channels based on a CSV file.
 	 
 Please type your choice" 
          if ($Program -eq 1) {
@@ -385,12 +385,16 @@ foreach($record in $source) {
 	 elseif ($Program -eq 2) {
 	 Write-Host "B2B Removal Tool selected launching program..."
 	      Write-Host "
-  ____ ____  ____    ____  _____ __  __  _____     ___    _       _____ ___   ___  _     
- | __ )___ \| __ )  |  _ \| ____|  \/  |/ _ \ \   / / \  | |     |_   _/ _ \ / _ \| |    
- |  _ \ __) |  _ \  | |_) |  _| | |\/| | | | \ \ / / _ \ | |       | || | | | | | | |    
- | |_) / __/| |_) | |  _ <| |___| |  | | |_| |\ V / ___ \| |___    | || |_| | |_| | |___ 
- |____/_____|____/  |_| \_\_____|_|  |_|\___/  \_/_/   \_\_____|   |_| \___/ \___/|_____|
-                                                                                         
+  ____  _   _ _     _  __  _____ _____    _    __  __      __   ____ _   _    _    _   _ _   _ _____ _     
+ | __ )| | | | |   | |/ / |_   _| ____|  / \  |  \/  |    / /  / ___| | | |  / \  | \ | | \ | | ____| |    
+ |  _ \| | | | |   | ' /    | | |  _|   / _ \ | |\/| |   / /  | |   | |_| | / _ \ |  \| |  \| |  _| | |    
+ | |_) | |_| | |___| . \    | | | |___ / ___ \| |  | |  / /   | |___|  _  |/ ___ \| |\  | |\  | |___| |___ 
+ |____/ \___/|_____|_|\_\__ |_| |_____/_/   \_\_|__|_|_/_/ ___ \____|_| |_/_/   \_\_| \_|_| \_|_____|_____|
+ |  _ \| ____|  \/  |/ _ \ \   / / \  | |     |_   _/ _ \ / _ \| |                                         
+ | |_) |  _| | |\/| | | | \ \ / / _ \ | |       | || | | | | | | |                                         
+ |  _ <| |___| |  | | |_| |\ V / ___ \| |___    | || |_| | |_| | |___                                      
+ |_| \_\_____|_|  |_|\___/  \_/_/   \_\_____|   |_| \___/ \___/|_____|                                     
+                                                                                                           
 " -ForegroundColor Yellow 
 ## Create Transcript File
      $DateTime = Get-Date -Format "MM/dd/yyyy HH:mm K"
