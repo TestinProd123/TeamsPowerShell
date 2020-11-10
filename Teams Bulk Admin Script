@@ -1,0 +1,586 @@
+Write-Host "
+  _____ _____    _    __  __ ____    ____  _   _ _     _  __     _    ____  __  __ ___ _   _   _____ ___   ___  _     
+ |_   _| ____|  / \  |  \/  / ___|  | __ )| | | | |   | |/ /    / \  |  _ \|  \/  |_ _| \ | | |_   _/ _ \ / _ \| |    
+   | | |  _|   / _ \ | |\/| \___ \  |  _ \| | | | |   | ' /    / _ \ | | | | |\/| || ||  \| |   | || | | | | | | |    
+   | | | |___ / ___ \| |  | |___) | | |_) | |_| | |___| . \   / ___ \| |_| | |  | || || |\  |   | || |_| | |_| | |___ 
+   |_| |_____/_/   \_\_|  |_|____/  |____/ \___/|_____|_|\_\ /_/   \_\____/|_|  |_|___|_| \_|   |_| \___/ \___/|_____|
+                                                                                                                      
+" -ForegroundColor Yellow 
+Write-Host "Note: this Tool leverages the Add-TeamChannelUser and Remove-TeamChannelUser cmdlets which requires the MicrosoftTeams v1.1.3 Module. For guest inviting the Azure AD Module is also required. Without these Modules this script may not function properly `n `n" -ForegroundColor Yellow
+Write-Host "* The Teams Bulk Admin Tool has been designed for the purpose of automating onboarding and offboarding of Guest users to Teams and Private channels.`n Please note that all activity undertaken by this tool will visible through Azure Active Directory Audit Logs and unauthorised use will be visible.`n The guesting tool will use the B2B guest invite process to add guest users and assign users from your home organisation in to the your organisations teams tenancy." "`n" -ForegroundColor Red 
+Write-Host "* This tool is only to be used by an AAD and Teams admin. `n By using this tool you agree to any terms and conditions imparted upon you by your ICT department and agree to acting within the bounds of your position or role " "`n" "`n" -ForegroundColor Red 
+$Agree = Read-Host -Prompt "Please type Y and hit Enter to agree to the conditions above"
+if ($Agree -eq "Y") {
+	 Write-Host "Please choose from the following options:" -ForegroundColor Green
+	 Do { $Program = Read-Host "
+1: Choose the B2B Guesting and User Assignment Tool: `n This tool is used to onboard guest users to your organisation and allocate them to specific Teams and Private Channels based on a CSV file.
+2: Choose the B2B Removal Tool: `n This tool is used to remove B2B guest users from specific Teams and Private Channels based on a CSV file.
+	 
+Please type your choice" 
+         if ($Program -eq 1) {
+    Write-Host "B2B Guesting and User Assignment Tool selected launching script..."
+	         Write-Host "
+  ____ ____  ____     ____ _   _ _____ ____ _____    ___                              
+ | __ )___ \| __ )   / ___| | | | ____/ ___|_   _|  ( _ )                             
+ |  _ \ __) |  _ \  | |  _| | | |  _| \___ \ | |    / _ \/\                           
+ | |_) / __/| |_) | | |_| | |_| | |___ ___) || |   | (_>  <                           
+ |____/_____|____/_ _\____|\___/|_____|____/_|_|_ __\___/\/_   _____ ___   ___  _     
+ | | | / ___|| ____|  _ \     / \  / ___/ ___|_ _/ ___| \ | | |_   _/ _ \ / _ \| |    
+ | | | \___ \|  _| | |_) |   / _ \ \___ \___ \| | |  _|  \| |   | || | | | | | | |    
+ | |_| |___) | |___|  _ <   / ___ \ ___) |__) | | |_| | |\  |   | || |_| | |_| | |___ 
+  \___/|____/|_____|_| \_\ /_/   \_\____/____/___\____|_| \_|   |_| \___/ \___/|_____|
+                                                                                      
+" -ForegroundColor Yellow 
+## Create Transcript File
+     $DateTime = Get-Date -Format "MM/dd/yyyy HH:mm K"
+     $TranscriptPath = "$env:TEMP\B2BTOOLlog.txt"
+     Start-Transcript -path $TranscriptPath
+
+## Connect-microsoftteams and azuread credentials
+     Write-Host "Please sign in to MS Teams"
+     connect-microsoftteams
+     Write-Host "Please sign in to Azure AD"
+     connect-azuread
+
+## Set CSV file location - Hardcoded location
+     ##Write-Host "Setting CSV path location"
+     ##$Path = ""
+     ##Write-Host "Path set"
+## Set CSV file location - choose location
+    Write-Host "Requesting the CSV location Path."
+    $RawPath = Read-Host -Prompt 'Please input the path of your On boarding CSV file'
+    $Path = "$RawPath"
+	
+##Set home UPN - Set the UPN associated with your home directory to avoid attempting to guest invite people from your organisation
+$RawHomeUPN = Read-Host -Prompt "Please input your home UPN e.g. *@example.com"
+$HomeUPN = $RawHomeUPN
+
+##Allowed Guest domains - use this to specify which domains should be allowed to be guested
+
+##$GuestDomain1 = Read-Host -Prompt "Please input allowed guest domain 1 *@example.com"
+##$GuestDomain2 = Read-Host -Prompt "Please input allowed guest domain 2 *@example.com"
+##etc
+ 
+
+## Import CSV
+     Write-Host "Importing CSV file"
+ 
+     $source = Import-Csv -path $Path
+ 
+## Error log file location
+     Write-Host "Setting log file path"
+     $outfilepath = "$env:TEMP\B2BInviteFailed.txt"
+     Write-Host "Log file path set to" $outfilepath
+
+## Set inclusion group id - Use this to add guest users to a specific Azure AD group
+     ##Write-Host "Setting Required group ID"
+	 ##$ExclusionGroupID = ""
+ 
+ 
+##For every record in the CSV check if the person already exists in your home directories AAD or whether they have a UPN that matches $HomeUPN
+Write-Host "Reading CSV file"
+ 
+foreach($record in $source) {
+     $sourceUserUPN = $record.UserUPN
+     Write-Host "Checking if user has a UPN that matches $HomeUPN..."
+     if ( $record.userupn -like '$HomeUPN') {
+     $User = get-azureaduser -filter "mail eq '$sourceUserUPN'"
+     $RefID = $User.ObjectID
+     Write-Host "User" $record.UserUPN "is matches home organisation UPN ($HomeUPN), skipping guest process"
+	 
+## Grab the Team and Channel names from the CSV -  Home UPN
+     Write-Host "Converting Team and Channel names to variables"
+     $team = Get-Team -DisplayName $record.TeamName
+     $teamname = $record.TeamName
+     $Channel01 = Get-TeamChannel -GroupID $team.GroupID
+     $Channel1 = $Channel01 | Where-Object { $_.Displayname -eq $record.ChannelName1 }
+     $Channel02 = Get-TeamChannel -GroupID $team.GroupID
+     $Channel2 = $Channel02 | Where-Object { $_.Displayname -eq $record.ChannelName2 }
+     $Channel03 = Get-TeamChannel -GroupID $team.GroupID
+     $Channel3 = $Channel03 | Where-Object { $_.Displayname -eq $record.ChannelName3 }
+     $recordUserUPN = $record.UserUPN
+	 
+ 
+     Write-Host "Adding user to Team" $teamname
+     Try
+     {
+     Add-TeamUser -User $record.UserUPN -GroupId $team.GroupID -Role member
+     }
+
+     Catch
+     {
+     Write-Host "Assigning" $record.UserUPN  "to Team" $team.displayname "failed due to invalid channel name"
+     $DateTime = Get-Date -Format "MM/dd/yyyy HH:mm K"
+     Print $DateTime + "`n" + $ErrorMessage " " $FailedItem + "`n" | out-file  "$env:TEMP\B2BInviteFailed.txt" -append
+     }
+     
+ 
+## Add the HomeUPN user to the Teams Channel in column ChannelName1  -  Home UPN
+     $ChannelName1 = $Record.ChannelName1
+     
+     Try
+     {
+     if ([string]::IsNullOrEmpty($record.ChannelName1)) {
+     Write-Host "Invalid Channel name or no channel specified for ChannelName1"
+     }else {
+     $ChannelName1 = $record.ChannelName1
+     Write-Host "Adding $recordUserUPN to: $Teamname > $ChannelName1"
+     Add-TeamChannelUser -GroupId $team.GroupID -Displayname $Channel1.Displayname -User $record.UserUPN
+     }
+     }
+ 
+## If the channel add fails add the details to the logs
+ 
+     Catch
+     {
+     $ErrorUser = $record.UserUPN
+     $ErrorMessage =  $ErrorUser  + "`n" +   "Assigning $recordUserUPN  to $channelname1 failed due to invalid channel name" + "`n" + $_.Exception.Message
+     $FailedItem = $_.Exception.ItemName
+     Write-Host "Assigning" $record.UserUPN  "to channel" $ChannelName1 "failed due to invalid channel name"
+     $DateTime = Get-Date -Format "MM/dd/yyyy HH:mm K"
+     Print $DateTime + "`n" + $ErrorMessage " " $FailedItem + "`n" | out-file  "$env:TEMP\B2BInviteFailed.txt" -append
+     }
+ 
+## Add the HomeUPN user to the Teams Channel in column ChannelName2
+     $ChannelName2 = $Record.ChannelName2
+     
+     Try
+     {
+     if ([string]::IsNullOrEmpty($record.ChannelName2)) {
+     Write-Host "Invalid Channel name or no channel specified for ChannelName2"
+     }else {
+     $ChannelName2 = $record.ChannelName2
+     Write-Host "Adding $recordUserUPN to: $Teamname > $ChannelName2"
+     Add-TeamChannelUser -GroupId $team.GroupID -displayname $Channel2.Displayname -User $record.UserUPN
+     }
+     }
+ 
+## If the channel add fails add the details to the logs
+ 
+     Catch
+     {
+     $ErrorUser = $record.UserUPN
+     $ErrorMessage =  $ErrorUser  + "`n" +   "Assigning $recordUserUPN  to $ChannelName2 failed due to invalid channel name" + "`n" + $_.Exception.Message
+     $FailedItem = $_.Exception.ItemName
+     Write-Host "Assigning" $record.UserUPN  "to channel" $ChannelName2 "failed due to invalid channel name"
+     $DateTime = Get-Date -Format "MM/dd/yyyy HH:mm K"
+     Print $DateTime + "`n" + $ErrorMessage " " $FailedItem + "`n" | out-file  "$env:TEMP\B2BInviteFailed.txt" -append
+     }
+ 
+## Add the HomeUPN user to the Teams Channel in column ChannelName3
+     $ChannelName3 = $Record.ChannelName3
+     
+     Try
+     {
+     if ([string]::IsNullOrEmpty($record.ChannelName3)) {
+     Write-Host "Invalid Channel name or no channel specified for ChannelName3"
+     }else {
+     $ChannelName3 = $record.ChannelName3
+     Write-Host "Adding $recordUserUPN to: $Teamname > $ChannelName3"
+     Add-TeamChannelUser -GroupId $team.GroupID -displayname $Channel3.Displayname -User $record.UserUPN
+     }
+     }
+ 
+## If the channel add fails add the details to the logs
+ 
+     Catch
+     {
+     $ErrorUser = $record.UserUPN
+     $ErrorMessage =  $ErrorUser  + "`n" +   "Assigning $recordUserUPN  to $ChannelName3 failed due to invalid channel name" + "`n" + $_.Exception.Message
+     $FailedItem = $_.Exception.ItemName
+     Write-Host "Assigning" $record.UserUPN  "to channel" $ChannelName3 "failed due to invalid channel name"
+     $DateTime = Get-Date -Format "MM/dd/yyyy HH:mm K"
+     Print $DateTime + "`n" + $ErrorMessage " " $FailedItem + "`n" | out-file  "$env:TEMP\B2BInviteFailed.txt" -append
+ 
+     }
+     continue
+     }else{
+     Write-Host "Checking if user is already in Home Organisation AAD or has a non-compliant UPN"
+     $User = get-azureaduser -filter "mail eq '$sourceUserUPN'"
+     $RefID = $User.ObjectID
+     if ($User.Count -eq 1) {
+     Write-Host "User"  $record.UserUPN  "already exists in Home Organisation AAD. No need to issue guest invite."
+     }else {
+     ##if  (($record.userupn -notlike $GuestDomain1) -and ($record.userupn -notlike $GuestDomain2)) {
+     ##Write-Host "User"  $record.UserUPN  "cannot be added to Home Organisation AAD as their email domain is not an allowed domain ($GuestDomain1 & $GuestDomain2)"
+     ##continue
+     ##}else {
+     ##Write-Host "User"  $record.UserUPN  "can be added to Home Organisation AAD as their email domain is a an allowed domain ($GuestDomain1 & $GuestDomain2)"
+## Add guested user if required.
+ 
+     Write-Host "Guesting" $record.UserUPN "in to Home Organisation AAD"
+     Try
+     {
+     New-AzureADMSInvitation -InvitedUserDisplayName $record.UserName -InvitedUserEmailAddress $record.UserUPN -InviteRedirectURL https://myapps.microsoft.com -SendInvitationMessage $true
+     $User = get-azureaduser -filter "mail eq '$sourceUserUPN'"
+     $RefID = $User.ObjectID
+     }
+ 
+ 
+## If the guesting of the user fails note it in the logs.
+ 
+ 
+     Catch
+     {
+     $ErrorUser = $record.UserUPN
+     $ErrorMessage =  $ErrorUser  + "`n" + $_.Exception.Message
+     $FailedItem = $_.Exception.ItemName
+     Write-Host "Creating user" $record.UserUPN  " in Home Organisation AAD failed, aborting assignment for user."
+     $DateTime = Get-Date -Format "MM/dd/yyyy HH:mm K"
+     Print $DateTime + "`n" + $ErrorMessage " " $FailedItem + "`n" | out-file  "$env:TEMP\B2BInviteFailed.txt" -append
+	 }
+      }}
+ 
+	 
+## Use this function to check if the user already exists in the required group, if they do continue otherwise add them to the required group.
+	 
+	 ## Write-Host "Checking if user is already in the required group and if so continue, otherwise add to GROUPNAME group"
+## Check if the user is already in the required group and if so ignore, otherwise add them to GROUPNAME group.
+     ##$exclusioncheck = get-azureadgroupmember -objectid $ExclusionGroupID | select-string $RefID
+     ##if ([string]::IsNullOrEmpty($exclusioncheck)) {
+	 
+     ##Try
+     ##{
+	 ##$User = get-azureaduser -filter "mail eq '$sourceUserUPN'"
+     ##$RefID = $User.ObjectID
+     ##Write-Host "Adding user" $record.UserUPN "to 'GROUPNAME' group."
+     ##Add-AzureADGroupMember -ObjectId $ExclusionGroupID -RefObjectId $RefID
+     ##}
+## If the adding of the user to the group fails note it in the logs.
+ 
+     ##Catch
+     ##{
+     ##$ErrorUser = $record.UserUPN
+     ##$ErrorMessage =  $ErrorUser  + "`n" + $_.Exception.Message
+     ##$FailedItem = $_.Exception.ItemName
+     ##Write-Host "Could not add" $record.UserUPN "to group 'GROUPNAME'"
+	 ##$DateTime = Get-Date -Format "MM/dd/yyyy HH:mm K"
+     ##Print $DateTime + "`n" + $ErrorMessage " " $FailedItem + "`n" | out-file  "$env:TEMP\B2BInviteFailed.txt" -append
+ 
+     ##} }
+	 ##Else
+     ##{ 
+	 ##Write-Host "User" $record.userupn "already exists in 'GROUPNAME' group."
+     ##}
+ 
+ 
+
+ 
+ 
+## Grab the Team and Channel names from the CSV
+     Write-Host "Getting and parsing Team and Channel names from the CSV"
+ 
+     $team = Get-Team -DisplayName $record.TeamName
+     $teamname = $Record.TeamName
+     $Channel01 = Get-TeamChannel -GroupID $team.GroupID
+     $Channel1 = $Channel01 | Where-Object { $_.Displayname -eq $record.ChannelName1 }
+     $Channel02 = Get-TeamChannel -GroupID $team.GroupID
+     $Channel2 = $Channel02 | Where-Object { $_.Displayname -eq $record.ChannelName2 }
+     $Channel03 = Get-TeamChannel -GroupID $team.GroupID
+     $Channel3 = $Channel03 | Where-Object { $_.Displayname -eq $record.ChannelName3 }
+     $recordUserUPN = $record.UserUPN
+ 
+ 
+     Write-Host "Adding" $record.UserUPN "to" $record.TeamName
+     Try
+     {
+     Add-TeamUser -User $record.UserUPN -GroupId $team.GroupID -Role member
+ 
+     }
+ 
+     Catch
+     {
+     Write-Host "Assigning" $record.UserUPN  "to Team" $team.displayname "failed due to invalid Team name"
+     $DateTime = Get-Date -Format "MM/dd/yyyy HH:mm K"
+     Print $DateTime + "`n" + $ErrorMessage " " $FailedItem + "`n" | out-file  "$env:TEMP\B2BInviteFailed.txt" -append
+	 
+     }
+	 
+ 
+## Add the guested user to the Teams Channel in column ChannelName1
+     $ChannelName1 = $Record.ChannelName1
+     
+     Try
+     {
+     if ([string]::IsNullOrEmpty($record.ChannelName1)) {
+     Write-Host "Invalid Channel name or no channel specified for ChannelName1"
+     }else {
+     $ChannelName1 = $record.ChannelName1
+     Write-Host "Adding $recordUserUPN to: $Teamname > $ChannelName1"
+     Add-TeamChannelUser -GroupId $team.GroupID -Displayname $Channel1.Displayname -User $record.UserUPN
+     }
+     }
+ 
+## If the channel add fails add the details to the logs
+ 
+     Catch
+     {
+     $ErrorUser = $record.UserUPN
+     $ErrorMessage =  $ErrorUser  + "`n" +   "Assigning $recordUserUPN  to $channelname1 failed due to invalid channel name" + "`n" + $_.Exception.Message
+     $FailedItem = $_.Exception.ItemName
+     Write-Host "Assigning" $record.UserUPN  "to channel" $ChannelName1 "failed due to invalid channel name"
+     $DateTime = Get-Date -Format "MM/dd/yyyy HH:mm K"
+     Print $DateTime + "`n" + $ErrorMessage " " $FailedItem + "`n" | out-file  "$env:TEMP\B2BInviteFailed.txt" -append
+     }
+ 
+## Add the guested user to the Teams Channel in column ChannelName2
+     $ChannelName2 = $Record.ChannelName2
+     
+     Try
+     {
+     if ([string]::IsNullOrEmpty($record.ChannelName2)) {
+     Write-Host "Invalid Channel name or no channel specified for ChannelName2"
+     }else {
+     $ChannelName2 = $record.ChannelName2
+     Write-Host "Adding $recordUserUPN to: $Teamname > $ChannelName2"
+     Add-TeamChannelUser -GroupId $team.GroupID -displayname $Channel2.Displayname -User $record.UserUPN
+     }
+     }
+ 
+## If the channel add fails add the details to the logs
+ 
+     Catch
+     {
+     $ErrorUser = $record.UserUPN
+     $ErrorMessage =  $ErrorUser  + "`n" +   "Assigning $recordUserUPN  to $ChannelName2 failed due to invalid channel name" + "`n" + $_.Exception.Message
+     $FailedItem = $_.Exception.ItemName
+     Write-Host "Assigning" $record.UserUPN  "to channel" $ChannelName2 "failed due to invalid channel name"
+     $DateTime = Get-Date -Format "MM/dd/yyyy HH:mm K"
+     Print $DateTime + "`n" + $ErrorMessage " " $FailedItem + "`n" | out-file  "$env:TEMP\B2BInviteFailed.txt" -append
+     }
+ 
+## Add the guested user to the Teams Channel in column ChannelName3
+     $ChannelName3 = $Record.ChannelName3
+     
+     Try
+     {
+     if ([string]::IsNullOrEmpty($record.ChannelName3)) {
+     Write-Host "Invalid Channel name or no channel specified for ChannelName3"
+     }else {
+     $ChannelName3 = $record.ChannelName3
+     Write-Host "Adding $recordUserUPN to: $Teamname > $ChannelName3"
+     Add-TeamChannelUser -GroupId $team.GroupID -displayname $Channel3.Displayname -User $record.UserUPN
+     }
+     }
+ 
+## If the channel add fails add the details to the logs
+ 
+     Catch
+     {
+     $ErrorUser = $record.UserUPN
+     $ErrorMessage =  $ErrorUser  + "`n" +   "Assigning $recordUserUPN  to $ChannelName3 failed due to invalid channel name" + "`n" + $_.Exception.Message
+     $FailedItem = $_.Exception.ItemName
+     Write-Host "Assigning" $record.UserUPN  "to channel" $ChannelName3 "failed due to invalid channel name"
+	 $DateTime = Get-Date -Format "MM/dd/yyyy HH:mm K"
+     Print $DateTime + "`n" + $ErrorMessage " " $FailedItem + "`n" | out-file  "$env:TEMP\B2BInviteFailed.txt" -append
+ 
+     }}
+	 Stop-Transcript
+	 Write-Host "CSV file completed, opening error file"
+     Invoke-Item "$env:TEMP\B2BInviteFailed.txt"
+     Write-Host "Opening transcript file"
+     Invoke-Item "$env:TEMP\B2BTOOLlog.txt"
+	 break
+	 }
+	 elseif ($Program -eq 2) {
+	 Write-Host "B2B Removal Tool selected launching program..."
+	      Write-Host "
+  ____ ____  ____    ____  _____ __  __  _____     ___    _       _____ ___   ___  _     
+ | __ )___ \| __ )  |  _ \| ____|  \/  |/ _ \ \   / / \  | |     |_   _/ _ \ / _ \| |    
+ |  _ \ __) |  _ \  | |_) |  _| | |\/| | | | \ \ / / _ \ | |       | || | | | | | | |    
+ | |_) / __/| |_) | |  _ <| |___| |  | | |_| |\ V / ___ \| |___    | || |_| | |_| | |___ 
+ |____/_____|____/  |_| \_\_____|_|  |_|\___/  \_/_/   \_\_____|   |_| \___/ \___/|_____|
+                                                                                         
+" -ForegroundColor Yellow 
+## Create Transcript File
+     $DateTime = Get-Date -Format "MM/dd/yyyy HH:mm K"
+     $TranscriptPath = "$env:TEMP\B2BRemovalTOOLlog.txt"
+     Start-Transcript -path $TranscriptPath
+
+
+## Connect-microsoftteams and azuread credentials
+     Write-Host "Please sign in to MS Teams"
+     connect-microsoftteams
+     Write-Host "Please sign in to Azure AD"
+     connect-azuread
+
+## Set CSV file location - Hardcoded location
+     Write-Host "Setting CSV path location"
+
+## Set CSV file location
+    ##Write-Host "Setting CSV path location"
+    ##$Path = ""
+    ## Write-Host "Path set"
+    
+	
+## Set CSV file location - choose location
+	 Write-Host "Requesting the CSV location Path."
+     $RawPath = Read-Host -Prompt 'Please input the path of your Off boarding CSV file'
+     $Path = "$RawPath"
+	
+## Import CSV
+     Write-Host "Importing CSV file"
+     $source = Import-Csv -path $Path
+ 
+## Error log file location
+     Write-Host "Setting log file path"
+     $outfilepath = "$env:TEMP\B2BRemoval.txt"
+	 Write-Host "Log file path set to" $outfilepath
+
+## Use this to set the required group (to remove users from this group as they are pulled out of Teams/Private Channels)
+    ## Write-Host "Setting exclusion group ID"
+	##$ExclusionGroupID = ""
+	 
+	 Write-Host "Reading CSV file"
+	 
+     foreach($record in $source) {
+     $sourceUserUPN = $record.UserUPN
+      
+## Grab the Team and Channel names from the CSV
+     Write-Host "Parsing Team and Channel names to variables"
+     $team = Get-Team -DisplayName $record.TeamName
+     $Channel01 = Get-TeamChannel -GroupID $team.GroupID
+     $Channel1 = $Channel01 | Where-Object { $_.Displayname -eq $record.ChannelName1 }
+     $Channel02 = Get-TeamChannel -GroupID $team.GroupID
+     $Channel2 = $Channel02 | Where-Object { $_.Displayname -eq $record.ChannelName2 }
+     $Channel03 = Get-TeamChannel -GroupID $team.GroupID
+     $Channel3 = $Channel03 | Where-Object { $_.Displayname -eq $record.ChannelName3 }
+     $recordUserUPN = $record.UserUPN
+ 
+ 
+     Write-Host "Checking if user needs to be removed from Team"
+     Try
+     {
+	 if ($record.RemoveFromTeam -eq "Y") {
+     Write-Host "Removing $recordUserUPN from:" $record.TeamName
+     Remove-TeamUser -User $record.UserUPN -GroupId $team.GroupID
+	 ## Remove user from the exclusion group 
+
+	 Write-Host "Removing user from exclusion group"
+	 ##Try
+     ##{
+	 ##$User = get-azureaduser -filter "mail eq '$sourceUserUPN'"
+     ##$RefID = $User.ObjectID
+     ##Write-Host "Removing user" $recordUserUPN "from GROUPNAME group."
+     ##remove-AzureADGroupMember -ObjectId $ExclusionGroupID -MemberId $RefID
+     ##}
+
+
+## If the removal of the user to the group fails note it in the logs.
+ 
+ 
+     ##Catch
+     ##{
+     ##$ErrorUser = $record.UserUPN
+     ##$ErrorMessage =  $ErrorUser  + "`n" + $_.Exception.Message
+     ##$FailedItem = $_.Exception.ItemName
+     ##Write-Host "Could not remove" $record.UserUPN "from group GROUPNAME "
+     ##Print $ErrorMessage " " $FailedItem | out-file "$env:TEMP\B2BRemovalFailed.txt" -append
+ 
+     ##}
+     }else {
+	
+     Write-Host "Removal from team not required, moving to channel removal"
+	 ##Write-Host "Note: User has not been removed from the Required Group or Team" -ForegroundColor Red
+     }
+     }
+ 
+     Catch
+     {
+     Write-Host "Removing" $record.UserUPN  "from Team" $team.displayname "failed"
+     Print $ErrorMessage " " $FailedItem | out-file  "$env:TEMP\B2BRemovalFailed.txt" -append
+     }
+ 
+## Remove the guested user from the Teams Channel in column ChannelName1
+     Write-Host "Checking Channel in Column 1 for removal"
+     Try
+     {
+     if ([string]::IsNullOrEmpty($record.ChannelName1)) {
+     Write-Host "Invalid Channel name/ no channel specified or user does not exist in ChannelName1"
+     }else {
+     $ChannelName1 = $record.ChannelName1
+     Write-Host "Removing $recordUserUPN from: $ChannelName1"
+     Remove-TeamChannelUser -GroupId $team.GroupID -Displayname $Channel1.Displayname -User $record.UserUPN
+     }
+     }
+ 
+## If the channel Remove fails add the details to the logs
+ 
+     Catch
+     {
+     $ErrorUser = $record.UserUPN
+     $ErrorMessage =  $ErrorUser  + "`n" +   "Invalid Channel name/ no channel specified or $recorduserupn does not exist in $record.ChannelName1 `n" + $_.Exception.Message
+     $FailedItem = $_.Exception.ItemName
+     Write-Host "Removing $recordUserUPN  from channel $ChannelName1 failed due to invalid channel name or $recorduserupn does not exist in $ChannelName1"
+     Print $ErrorMessage " " $FailedItem | out-file  "$env:TEMP\B2BRemovalFailed.txt" -append
+     }
+ 
+## Remove the guested user from the Teams Channel in column ChannelName2
+     Write-Host "Checking Channel in Column 2 for removal"
+     Try
+     {
+     if ([string]::IsNullOrEmpty($record.ChannelName2)) {
+     Write-Host "Invalid Channel name or no channel specified for ChannelName2"
+     }else {
+     $ChannelName2 = $record.ChannelName2
+     Write-Host "Removing $recordUserUPN from: $ChannelName2"
+     Remove-TeamChannelUser -GroupId $team.GroupID -displayname $Channel2.Displayname -User $record.UserUPN
+     }
+     }
+ 
+## If the channel Remove fails add the details to the logs
+ 
+     Catch
+     {
+     $ErrorUser = $record.UserUPN
+     $ErrorMessage =  $ErrorUser  + "`n" +   "Removing $recordUserUPN  from $ChannelName2 failed due to invalid channel name" + "`n" + $_.Exception.Message
+     $FailedItem = $_.Exception.ItemName
+     Write-Host "Removing $recordUserUPN  from channel $ChannelName2 failed due to invalid channel name or $recorduserupn does not exist in $ChannelName2"
+     Print $ErrorMessage " " $FailedItem | out-file  "$env:TEMP\B2BRemovalFailed.txt" -append
+     }
+ 
+## Remove the guested user from the Teams Channel in column ChannelName3
+     Write-Host "Checking Channel in Column 3 for removal"
+     Try
+     {
+     if ([string]::IsNullOrEmpty($record.ChannelName3)) {
+     Write-Host "Invalid Channel name or no channel specified for ChannelName3"
+     }else {
+     $ChannelName3 = $record.ChannelName3
+     Write-Host "Removing $recordUserUPN from: $ChannelName3"
+     Remove-TeamChannelUser -GroupId $team.GroupID -displayname $Channel3.Displayname -User $record.UserUPN
+     }
+     }
+ 
+## If the channel remove fails add the details to the logs
+
+     Catch
+     {
+     $ErrorUser = $record.UserUPN
+     $ErrorMessage =  $ErrorUser  + "`n" +   "Removing $recordUserUPN from channel $ChannelName3 failed due to invalid channel name or $recorduserupn does not exist in $ChannelName3 `n" + $_.Exception.Message
+     $FailedItem = $_.Exception.ItemName
+     Write-Host "Removing $recordUserUPN  from channel $ChannelName3 failed due to invalid channel name or $recorduserupn does not exist in $ChannelName3"
+     Print $ErrorMessage " " $FailedItem | out-file  "$env:TEMP\B2BRemovalFailed.txt" -append
+     
+     }
+     
+
+	 }
+      Stop-Transcript
+	 Write-Host "CSV file completed, opening error file"
+     Invoke-Item "$env:TEMP\B2BRemovalFailed.txt"
+     Write-Host "Opening transcript file"
+     Invoke-Item "$env:TEMP\B2BRemovalTOOLlog.txt"
+	 break
+	 }
+	
+	else {
+	Write-Host "[WARNING] Please select whether you'd like to use the Guesting or Removal tool"
+	}
+	}
+	While ($true)
+	 }else {
+	 Write-Host "Terms and conditions not accepted, Press enter to close window"
+     Pause 
+	 Exit
+     }
