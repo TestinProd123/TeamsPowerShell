@@ -1,4 +1,6 @@
-NOTE: This script was created for a particular purpose that suited my environment and was not created by Microsoft. Usage of this script is at your own risk and any errors, issues or problems encountered through the use of this script are the reposnsibility of the user of it.
+NOTE: This script was created for a particular purpose that suited my environment and was not created by Microsoft. 
+Usage of this script is at your own risk and any errors, issues or problems encountered through the use of this script are the reposnsibility of the person running it. 
+I take no responsibility for any issues you envounter by using the script.
 You are welcome to edit, modify and distribute this script as you see fit.
 
 ####Using the script
