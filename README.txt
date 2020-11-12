@@ -17,7 +17,7 @@ You should modify the script as needed.
 
 ## Selecting an option
 1.) Copy the contents of the "Teams Bulk Admin Script" to notepad and save it as "Teams Bulk Admin Script.PS1" as file type "all files".
-2.) Right click "Teams Bulk Admin Script.PS1" and click "Run with Powershell"
+2.) Right click "Teams Bulk Admin Script.PS1" and click "Run with Powershell". (You could alternatively just open up a PowerShell window and paste in the script and hit enter).
 3.) Accept the terms and conditions set out by the script by pressing "Y"
 4.) Choose a program, either option 1 or 2.
 	Option 1:  B2B Guesting and User Assignment Tool: This tool is used to onboard guest users to your organisation and allocate them to specific Teams and Private Channels based on a CSV file.
