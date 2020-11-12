@@ -1,3 +1,38 @@
+####Using the script
+
+##Prerequisites:
+*Note: this Tool leverages the Add-TeamChannelUser and Remove-TeamChannelUser cmdlets which requires the MicrosoftTeams v1.1.3 Module. 
+For guest inviting the Azure AD Module is also required. Without these Modules this script may not function properly.
+
+The script contains a number of commented out functions:
+* Specific allowed domains for guest inviting
+* Assign users to a group automatically as they are guested in to your AAD.
+
+You should modify the script as needed.
+
+## Selecting an option
+1.) Copy the contents of the "Teams Bulk Admin Script" to notepad and save it as "Teams Bulk Admin Script.PS1" as file type "all files".
+2.) Right click "Teams Bulk Admin Script.PS1" and click "Run with Powershell"
+3.) Accept the terms and conditions set out by the script by pressing "Y"
+4.) Choose a program, either option 1 or 2.
+	Option 1:  B2B Guesting and User Assignment Tool: This tool is used to onboard guest users to your organisation and allocate them to specific Teams and Private Channels based on a CSV file.
+	Option 2:  Bulk Team/Channel Removal Tool: This tool is used to remove B2B guest users from specific Teams and Private Channels based on a CSV file.
+
+## Option 1:  B2B Guesting and User Assignment Tool
+1.) Sign in to the Microsoft Teams module with a user with sufficient permissions
+2.) Sign in to the Azure AD module with a user with sufficient permissions.
+3.) Define your home UPN pattern - this will be used to bypass users from your home UPN when guest inviting.
+4.) Define the path of the CSV file you will use for on boarding.
+5.) The script will complete and save any errors to a reporting error log
+6.) On completion of the script the text file will open from your temporary directory automatically
+
+## Option 2:  Bulk Team/Channel Removal Tool
+1.) Sign in to the Microsoft Teams module with a user with sufficient permissions
+2.) Sign in to the Azure AD module with a user with sufficient permissions.
+3.) Define the path of the CSV file you will use for off boarding.
+4.) The script will complete and save any errors to a reporting error log
+5.) On completion of the script the text file will open from your temporary directory automatically
+
 ##### Option 1:  B2B Guesting and User Assignment Tool: On boarding guest users to AAD and then assigning them to Teams and Private Channels in your environment:
 
 ##Purpose:
@@ -47,7 +82,7 @@ To make things easier a csv template has been provided which can be edited by us
 *ChanelName3: The name of a Private channel that the user requires removal from.*
 Note: If a user is in multiple Teams you should add multiple lines for them in this file to indicate the different Teams or Private channels that the user should be removed from.
 If the user needs to be removed from more than 3 Private channels a second line should also be added for the user. 
-*RemoveFromTeam: Whether the user should be fully removed from the Team or just a channel. ìYî indicates that removal from the whole Team is necessary otherwise leave this field blank.
+*RemoveFromTeam: Whether the user should be fully removed from the Team or just a channel. ‚ÄúY‚Äù indicates that removal from the whole Team is necessary otherwise leave this field blank.
 
 ##How to fill in the fields
 
@@ -62,37 +97,4 @@ Please be aware that these must be spelled correctly otherwise the user will not
 Each Team has its own channels, standard channels allow access to all members of a Team whereas Private Channels require specific assignment of user.
 Please be aware that these must be spelled correctly otherwise the user will not be added correctly.
 
-####Using the script
 
-##Prerequisites:
-*Note: this Tool leverages the Add-TeamChannelUser and Remove-TeamChannelUser cmdlets which requires the MicrosoftTeams v1.1.3 Module. 
-For guest inviting the Azure AD Module is also required. Without these Modules this script may not function properly.
-
-The script contains a number of commented out functions:
-* Specific allowed domains for guest inviting
-* Assign users to a group automatically as they are guested in to your AAD.
-
-You should modify the script as needed.
-
-## Selecting an option
-1.) Copy the contents of the "Teams Bulk Admin Script" to notepad and save it as "Teams Bulk Admin Script.PS1" as file type "all files".
-2.) Right click "Teams Bulk Admin Script.PS1" and click "Run with Powershell"
-3.) Accept the terms and conditions set out by the script by pressing "Y"
-4.) Choose a program, either option 1 or 2.
-	Option 1:  B2B Guesting and User Assignment Tool: This tool is used to onboard guest users to your organisation and allocate them to specific Teams and Private Channels based on a CSV file.
-	Option 2:  Bulk Team/Channel Removal Tool: This tool is used to remove B2B guest users from specific Teams and Private Channels based on a CSV file.
-
-## Option 1:  B2B Guesting and User Assignment Tool
-1.) Sign in to the Microsoft Teams module with a user with sufficient permissions
-2.) Sign in to the Azure AD module with a user with sufficient permissions.
-3.) Define your home UPN pattern - this will be used to bypass users from your home UPN when guest inviting.
-4.) Define the path of the CSV file you will use for on boarding.
-5.) The script will complete and save any errors to a reporting error log
-6.) On completion of the script the text file will open from your temporary directory automatically
-
-## Option 2:  Bulk Team/Channel Removal Tool
-1.) Sign in to the Microsoft Teams module with a user with sufficient permissions
-2.) Sign in to the Azure AD module with a user with sufficient permissions.
-3.) Define the path of the CSV file you will use for off boarding.
-4.) The script will complete and save any errors to a reporting error log
-5.) On completion of the script the text file will open from your temporary directory automatically
