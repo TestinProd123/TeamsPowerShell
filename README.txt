@@ -1,3 +1,6 @@
+NOTE: This script was created for a particular purpose that suited my environment and was not created by Microsoft. Usage of this script is at your own risk and any errors, issues or problems encountered through the use of this script are the reposnsibility of the user of it.
+You are welcome to edit, modify and distribute this script as you see fit.
+
 ####Using the script
 
 ##Prerequisites:
